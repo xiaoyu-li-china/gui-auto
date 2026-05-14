@@ -1,0 +1,8 @@
+批次: 1
+轮次: 1
+时间: 2026-05-10T16:25:28.699487
+提示词:
+使用 Node.js + Express + PostgreSQL 生成用户偏好设置 API，支持 GET /preferences/:userId 获取用户偏好（主题、语言、通知开关），PUT /preferences/:userId 更新偏好。数据存储在 JSONB 字段中
+
+输出:
+[无法获取输出文本]
