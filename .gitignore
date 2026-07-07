@@ -2,3 +2,5 @@
 __pycache__/
 *.py[cod]
 .DS_Store
+batch_two_screenshots/
+*.log

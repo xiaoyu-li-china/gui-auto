@@ -4,26 +4,19 @@
 各 batch 共 5 个轮次（第一轮…第五轮，按 prompts 根下活动 batch 键顺序切换）；
 全部 batch 第一轮结束后等 5s（与原先一致），其余轮次之间无额外等待。
 第 2～5 轮：打开该 batch 并等待后、**输入本轮提示词之前**全屏截图，将绝对路径写入 ``output.json`` 对应 **上一轮** 条目的「截图（产物/运行结果/对话）」字段。
-打开工作区用 ``111.py`` 的 ``open_trae``；输入提示词用固定坐标点击输入框
-``(400, 703)`` → ``Cmd+A`` / ``Cmd+V`` → ``Enter`` 发送。
+仅用 ``111.py`` 的 ``create_workspace_dir``、``open_trae``。
 """
 import importlib.util
-import atomacos
 import json
 import re
 import time
 from pathlib import Path
 
 import pyautogui
-from atomacos import keyboard
 
 pyautogui.FAILSAFE = False
 
-from trae_auto_runner import (
-    TRAE_BUNDLE_ID,
-    _copy_to_clipboard,
-    _stabilize_trae_after_open_workspace,
-)
+import locate_trae_ui as loc
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
 PROMPTS_JSON = _SCRIPT_DIR / "prompts.json"
@@ -32,7 +25,7 @@ SCREENSHOT_DIR = _SCRIPT_DIR / "batch_two_screenshots"
 SHOT_FIELD = "截图（产物/运行结果/对话）"
 
 # 写死：各 batch 工作区父目录 …/0512/batch1、batch2 …
-BATCH_WORK_ROOT = Path("/Users/lxy/Documents/wkspsTreacn/test-DF/packages/0603")
+BATCH_WORK_ROOT = Path("/Users/lxy/Documents/wkspsTreacn/test-DF/packages/0601")
 
 _spec = importlib.util.spec_from_file_location("mod111", _SCRIPT_DIR / "111.py")
 _mod111 = importlib.util.module_from_spec(_spec)
@@ -43,8 +36,7 @@ open_trae = _mod111.open_trae
 
 # 打开工作区后再等 10s 再输入提示词（111 内 open 后另有 sleep(3)）
 WAIT_AFTER_OPEN_EXTRA_SEC = 10.0
-WAIT_AFTER_BATCH2_ROUND1_SEC = 490.0
-INPUT_X, INPUT_Y = 400, 703
+WAIT_AFTER_BATCH2_ROUND1_SEC = 420.0
 
 ROUND_LABELS = ["第一轮", "第二轮", "第三轮", "第四轮", "第五轮"]
 
@@ -88,6 +80,13 @@ def _write_output_json(out_data):
     with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
         json.dump(out_data, f, ensure_ascii=False, indent=2)
 
+def _copy_to_clipboard(text):
+    data = text.encode("utf-8")
+    p = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
+    p.communicate(data)
+    if p.returncode != 0:
+        raise RuntimeError("pbcopy 失败，无法写入剪贴板")
+
 
 def _send_prompt_by_click(app, prompt):
     app.activate()
@@ -102,10 +101,7 @@ def _send_prompt_by_click(app, prompt):
     keyboard.hotkey("command", "v")
     time.sleep(1.0)
     pyautogui.press("enter")
-    time.sleep(1.0)
-    pyautogui.press("enter")
     time.sleep(2.0)
-
 
 def _send_round(
     batch_id,
@@ -118,11 +114,9 @@ def _send_round(
     if not prompt:
         raise SystemExit(f"{batch_id} 缺少{round_label} User Prompt")
     print(f"[{batch_id}] 打开工作区: {workspace}", flush=True)
-    open_trae(workspace)
+    app = open_trae(workspace)
+    loc.app = app
     time.sleep(WAIT_AFTER_OPEN_EXTRA_SEC)
-    if not _stabilize_trae_after_open_workspace(timeout=25):
-        print(f"[{batch_id}] 警告：Trae CN 可能未获得前台，粘贴可能失败", flush=True)
-    app = atomacos.getAppRefByBundleId(TRAE_BUNDLE_ID)
     if screenshot_prev_round:
         shot_path = _screenshot_save(batch_id, screenshot_prev_round)
         if not _patch_output_screenshot(out_data, batch_id, screenshot_prev_round, shot_path):
@@ -135,9 +129,13 @@ def _send_round(
             flush=True,
         )
     print(f"[{batch_id}] 发送{round_label}…", flush=True)
-    _send_prompt_by_click(app, prompt)
-    print(f"[{batch_id}] 已发送（坐标 {INPUT_X},{INPUT_Y} + Enter）", flush=True)
-    time.sleep(120.0)
+    loc.input_prompt(prompt)
+    time.sleep(1.0)
+    pyautogui.press("enter", 2)
+    time.sleep(0.2)
+    pyautogui.press("enter", 2)
+    print(f"[{batch_id}] 已按回车发送", flush=True)
+    time.sleep(60.0)
 
 
 def main():
